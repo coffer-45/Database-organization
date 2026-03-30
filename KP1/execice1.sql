@@ -21,10 +21,13 @@ CREATE TABLE Events (
 
 CREATE TABLE Customers (
     customer_id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    phone VARCHAR(20)
+    phone VARCHAR(20),
+    password_hash VARCHAR(255) NOT NULL,
+    registration_date DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
 CREATE TABLE TicketTypes (

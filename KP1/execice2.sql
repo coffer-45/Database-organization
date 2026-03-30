@@ -12,29 +12,31 @@ INSERT INTO Events (venue_id, name, event_date, event_time, event_type) VALUES
 (2, 'Балет Лебедине озеро', '2026-10-20', '18:00', 'Театр'),
 (3, 'Футбольний матч', '2026-11-05', '20:00', 'Спорт');
 
-INSERT INTO Customers (first_name, last_name, email, phone) VALUES
-('Іван', 'Педренко', 'ivan.goida@gmail.com', '0501112233'),
-('Артем', 'Давидчук', 'artem.davydchuk@gmail.com', '0671112233'),
-('Андрій', 'Вовк', 'andrii.vovk@edu.kpi.ua', '0631112233');
+INSERT INTO Customers (username, first_name, last_name, email, phone, password_hash, registration_date) VALUES
+('ivan_pedrenko', 'Іван', 'Петренко', 'ivan.goida@gmail.com', '0501112233', 'hash_ivan_123', '2026-03-01'),
+('artem_davydchuk', 'Артем', 'Давидчук', 'artem.davydchuk@gmail.com', '0671112233', 'hash_artem_123', '2026-03-05'),
+('andrii_vovk', 'Андрій', 'Вовк', 'andrii.vovk@edu.kpi.ua', '0631112233', 'hash_andrii_123', '2026-03-10');
 
 INSERT INTO TicketTypes (event_id, type_name, price, allocated_quantity) VALUES
-(1, 'Фан-зона', 800.00, 5000),
 (1, 'VIP', 2500.00, 200),
-(2, 'Партер', 1200.00, 500),
-(3, 'Сектор А', 400.00, 10000);
+(1, 'Звичайний', 800.00, 5000),
+(1, 'Студентський', 500.00, 1000),
+(2, 'VIP', 1800.00, 100),
+(2, 'Звичайний', 1200.00, 500),
+(3, 'Звичайний', 400.00, 10000);
 
 INSERT INTO Purchases (customer_id, ticket_type_id, quantity, total_price) VALUES
-(1, 1, 2, 1600.00),
-(1, 3, 1, 1200.00),
-(2, 2, 1, 2500.00),
-(3, 4, 4, 1600.00);
+(1, 2, 2, 1600.00),
+(1, 5, 1, 1200.00),
+(2, 1, 1, 2500.00),
+(3, 6, 4, 1600.00);
 
 -- OLTP: 2 INSERT запити
 INSERT INTO Venues (name, location, capacity)
 VALUES ('Арена Львів', 'Львів', 34915);
 
-INSERT INTO Customers (first_name, last_name, email, phone)
-VALUES ('Клієнт', 'ДляВидалення', 'delete.me@example.com', '0000000000');
+INSERT INTO Customers (username, first_name, last_name, email, phone, password_hash, registration_date)
+VALUES ('delete_customer', 'Клієнт', 'ДляВидалення', 'delete.me@example.com', '0000000000', 'hash_delete_123', '2026-03-15');
 
 -- OLTP: 2 UPDATE запити
 UPDATE Venues
