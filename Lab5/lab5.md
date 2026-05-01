@@ -409,6 +409,7 @@ ADD CHECK (CompletedDate IS NULL OR CompletedDate >= AcceptedDate);
   <img src="media/image.png" alt="виконання normalization.sql у Query Tool pgAdmin без помилок.">
   <p><em>виконання normalization.sql у Query Tool pgAdmin без помилок.</em></p>
 </div>
+
 ## Фінальна схема у 3НФ
 
 Після нормалізації схема містить такі таблиці:
