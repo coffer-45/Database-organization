@@ -22,7 +22,16 @@
 - `RepairService` — послуги ремонту;
 - `SetUpService` — послуги налаштування інструментів.
 
-Більшість таблиць уже має коректні первинні та зовнішні ключі. Однак у схемі є атрибути, які дублюють або обчислюють дані, що вже можуть бути отримані з інших таблиць. Такі атрибути створюють ризик аномалій оновлення.
+Схема з другої лабораторної вже загалом розбита на окремі сутності: клієнти, товари, категорії, замовлення, оренда та послуги не зберігаються в одній великій таблиці. Тому грубих порушень 1НФ або 2НФ у ній немає.
+
+Під час перевірки основна увага була на тому, чи не зберігаються в таблицях значення, які можна отримати з уже наявних даних. Саме такі поля є головною проблемою початкової схеми:
+
+- `TotalAmount` у `CustomerOrder`;
+- `TotalRentPrice` у `Rent`;
+- `TotalProfit` та `IsSold` у `InstrumentBuyIn`;
+- текстове поле `Brand` у `Product`.
+
+Через ці поля можуть з'являтися суперечності. Наприклад, якщо змінити позиції замовлення, але не оновити `TotalAmount`, сума замовлення в таблиці вже буде неправильною.
 
 ## Функціональні залежності початкової схеми
 
@@ -50,7 +59,7 @@ CategoryID -> Name, Description
 Name -> CategoryID, Description
 ```
 
-Це семантична залежність предметної області: назва категорії має бути унікальною. Тому для фінальної схеми доцільно додати обмеження `UNIQUE` для `Name`.
+У цій предметній області назву категорії краще зробити унікальною, бо дві категорії з однаковою назвою тільки плутатимуть дані.
 
 ### `Product`
 
@@ -63,7 +72,7 @@ ProductID -> CategoryID, Brand, Model, Price, StockQuantity
 CategoryID -> Category.Name, Category.Description
 ```
 
-Проблема таблиці полягає в тому, що назва бренду зберігається текстом у кожному товарі. Якщо бренд повторюється в багатьох товарах, його назва дублюється. Це не порушує 1НФ, але створює аномалії оновлення. Наприклад, якщо назву бренду потрібно виправити, її доведеться змінювати в багатьох рядках `Product`.
+У `Product` бренд зберігається звичайним текстом. Для кількох товарів одного бренду це означає повторення одного й того самого значення. Наприклад, якщо назву `Fender` треба буде змінити або виправити, її доведеться шукати в усіх товарах. Тому бренд краще винести в окрему таблицю `Brand`.
 
 ### `CustomerOrder`
 
@@ -75,13 +84,13 @@ CategoryID -> Category.Name, Category.Description
 OrderID -> CustomerID, OrderDate, Status, ShippingAddress, TotalAmount
 ```
 
-Атрибут `TotalAmount` є похідним. Його можна обчислити як суму:
+Поле `TotalAmount` не є окремим фактом. Його можна порахувати з позицій замовлення:
 
 ```text
 SUM(OrderItem.Quantity * OrderItem.UnitPrice)
 ```
 
-Отже, сума замовлення дублює інформацію з таблиці `OrderItem`. Якщо змінити кількість товару або ціну одиниці в `OrderItem`, але не оновити `CustomerOrder.TotalAmount`, виникне суперечність.
+Тому зберігати його в `CustomerOrder` необов'язково. Якщо кількість або ціна в `OrderItem` зміниться, а `TotalAmount` залишиться старим, дані стануть некоректними.
 
 ### `OrderItem`
 
@@ -96,7 +105,7 @@ OrderItemID -> OrderID, ProductID, Quantity, UnitPrice
 OrderID, ProductID -> Quantity, UnitPrice
 ```
 
-Таблиця реалізує зв'язок багато-до-багатьох між `CustomerOrder` і `Product`. Атрибути `Quantity` та `UnitPrice` залежать від повної пари `(OrderID, ProductID)`.
+Таблиця `OrderItem` описує конкретний товар у конкретному замовленні. Саме тому `Quantity` і `UnitPrice` залежать від пари `(OrderID, ProductID)`, а не від одного з цих полів окремо.
 
 ### `Rent`
 
@@ -110,7 +119,7 @@ RentID -> CustomerID, ProductID, PickUpDate, Duration, ReturnDate, Status,
 ProductID -> Product.Price
 ```
 
-Атрибут `TotalRentPrice` є похідним, оскільки розраховується на основі ціни товару, відсотка оренди та тривалості. Якщо змінити `PercentageFromPrice`, `Duration` або ціну товару, збережене значення `TotalRentPrice` може стати некоректним.
+`TotalRentPrice` також є обчислюваним полем. Його можна отримати з ціни товару, відсотка оренди та тривалості. Через це його краще не дублювати в таблиці `Rent`.
 
 ### `StudioBooking`
 
@@ -139,12 +148,12 @@ ProductID -> BuyInID, CustomerID, Condition, Status, BuyInPrice,
              SellingPrice, TotalProfit, IsSold
 ```
 
-Проблеми:
+Проблемні поля:
 
 - `TotalProfit` є похідним атрибутом: `SellingPrice - BuyInPrice`;
 - `IsSold` дублює частину змісту атрибута `Status`, оскільки статус `Sold` уже означає, що товар продано.
 
-Ці поля можуть створити аномалії оновлення. Наприклад, якщо `Status = 'Sold'`, але `IsSold = FALSE`, дані суперечать одне одному.
+Наприклад, якщо в одному рядку буде `Status = 'Sold'`, але `IsSold = FALSE`, то з такого запису вже незрозуміло, проданий інструмент чи ні. Тому достатньо залишити тільки `Status`, а прибуток рахувати окремо.
 
 ### `RepairService`
 
@@ -157,7 +166,7 @@ RepairID -> CustomerID, ProductID, AcceptedDate, CompletionDate, Status,
             ProblemDescription, RepairDetails, EstimatedPrice, FinalPrice
 ```
 
-Порушень 3НФ не виявлено. Однак `CompletionDate` і `FinalPrice` краще зробити nullable, тому що ремонт може бути ще не завершений і фінальна ціна ще може бути невідомою.
+Окремої проблеми з нормальними формами тут немає. Але для практичності `CompletionDate` і `FinalPrice` краще дозволити залишати порожніми, бо ремонт може бути ще не завершений.
 
 ### `SetUpService`
 
@@ -170,7 +179,7 @@ SetUpID -> CustomerID, ProductID, AcceptedDate, CompletedDate, Status,
            SetUpType, Price
 ```
 
-Порушень 3НФ не виявлено. Однак `CompletedDate` також доцільно зробити nullable, тому що налаштування може бути ще в процесі виконання.
+Окремої проблеми з нормальними формами тут також немає. `CompletedDate` краще зробити необов'язковим, бо налаштування може ще виконуватися.
 
 ## Аналіз нормальних форм початкової схеми
 
@@ -287,10 +296,10 @@ CustomerOrder(OrderID, CustomerID, OrderDate, Status, ShippingAddress)
 
 ```sql
 SELECT
-    oi.OrderID,
-    SUM(oi.Quantity * oi.UnitPrice) AS TotalAmount
-FROM OrderItem oi
-GROUP BY oi.OrderID;
+    OrderItem.OrderID,
+    SUM(OrderItem.Quantity * OrderItem.UnitPrice) AS TotalAmount
+FROM OrderItem
+GROUP BY OrderItem.OrderID;
 ```
 
 ### `Rent` після нормалізації
@@ -313,10 +322,10 @@ Rent(RentID, CustomerID, ProductID, PickUpDate, Duration, ReturnDate,
 
 ```sql
 SELECT
-    r.RentID,
-    ROUND(p.Price * r.PercentageFromPrice / 100 * r.Duration, 2) AS TotalRentPrice
-FROM Rent r
-JOIN Product p ON p.ProductID = r.ProductID;
+    Rent.RentID,
+    ROUND(Product.Price * Rent.PercentageFromPrice / 100 * Rent.Duration, 2) AS TotalRentPrice
+FROM Rent
+JOIN Product ON Product.ProductID = Rent.ProductID;
 ```
 
 ### `InstrumentBuyIn` після нормалізації
@@ -367,10 +376,10 @@ FROM Product;
 ALTER TABLE Product
 ADD COLUMN BrandID INT;
 
-UPDATE Product p
-SET BrandID = b.BrandID
-FROM Brand b
-WHERE p.Brand = b.Name;
+UPDATE Product
+SET BrandID = Brand.BrandID
+FROM Brand
+WHERE Product.Brand = Brand.Name;
 
 ALTER TABLE Product
 ALTER COLUMN BrandID SET NOT NULL;
@@ -394,18 +403,13 @@ DROP COLUMN IsSold;
 
 ALTER TABLE RepairService
 ALTER COLUMN CompletionDate DROP NOT NULL,
-DROP CONSTRAINT repairservice_check,
-ADD CHECK (CompletionDate IS NULL OR CompletionDate >= AcceptedDate);
+ALTER COLUMN FinalPrice DROP NOT NULL;
 
 ALTER TABLE SetUpService
-ALTER COLUMN CompletedDate DROP NOT NULL,
-DROP CONSTRAINT setupservice_check,
-ADD CHECK (CompletedDate IS NULL OR CompletedDate >= AcceptedDate);
+ALTER COLUMN CompletedDate DROP NOT NULL;
 ```
 
-Назви автоматично створених `CHECK`-обмежень у PostgreSQL можуть відрізнятися. Якщо база вже створена, точні назви обмежень можна перевірити в pgAdmin або через системний каталог `pg_constraint`.
-
-<div align="left">
+<div align="center">
   <img src="media/image.png" alt="виконання normalization.sql у Query Tool pgAdmin без помилок.">
   <p><em>виконання normalization.sql у Query Tool pgAdmin без помилок.</em></p>
 </div>
@@ -435,7 +439,7 @@ ADD CHECK (CompletedDate IS NULL OR CompletedDate >= AcceptedDate);
 - транзитивні та надлишкові залежності усунено.
 
 
-<div align="left">
+<div align="center">
   <img src="media/list_of_tables.png" alt="список створених таблиць у pgAdmin після виконання нормалізованої схеми.">
   <p><em>список створених таблиць у pgAdmin після виконання нормалізованої схеми.</em></p>
 </div>
@@ -463,7 +467,7 @@ test_data.sql
 
 Після видалення похідних атрибутів значення суми замовлення, вартості оренди та прибутку від викупу можна отримати через представлення `OrderTotal`, `RentTotal` та `BuyInProfit`.
 
-<div align="right">
+<div align="center">
   <img src="media/OrderTotal.png" alt="результат запиту `SELECT * FROM OrderTotal;` у pgAdmin.">
   <p><em>результат запиту `SELECT * FROM OrderTotal;` у pgAdmin.</em></p>
 </div>
@@ -473,7 +477,7 @@ test_data.sql
   <p><em>результат запиту `SELECT * FROM RentTotal;` у pgAdmin.</em></p>
 </div>
 
-<div align="left">
+<div align="center">
   <img src="media/BuyInProfit.png" alt="результат запиту `SELECT * FROM BuyInProfit;` у pgAdmin.">
   <p><em>результат запиту `SELECT * FROM BuyInProfit;` у pgAdmin.</em></p>
 </div>
